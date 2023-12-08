@@ -41,7 +41,8 @@ def welcome():
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/<start><br/>"
+        f"/api/v1.0/temp/start<br/>"
+        f"/api/v1.0/temp/start/end<br/>"
         f"<br/>"
         f"<br/>"
         f"As a special treat for being selected as my grader for this assignment, copy/paste this into your browser (https://youtu.be/dQw4w9WgXcQ?si=Ph7YV87LBMrjNjVR)"
@@ -93,6 +94,49 @@ def temperatures():
     }
 
     return jsonify(dict)
+
+@app.route("/api/v1.0/temp/<start>")
+@app.route("/api/v1.0/temp/<start>/<end>")
+def stats(start=None, end=None):
+    """Return TMIN, TAVG, TMAX."""
+    # Select statement
+    sel = [func.min(measurement.tobs), func.avg(measurement.tobs), func.max(measurement.tobs)]
+    
+    # Convert start from string to datetime object
+    start = dt.datetime.strptime(start, "%Y-%m-%d")
+
+    # If the end date is provided, convert it from string to datetime object
+    if end:
+        end = dt.datetime.strptime(end, "%Y-%m-%d")
+
+    # Build the query based on whether an end date is provided
+    if not end:
+        # calculate TMIN, TAVG, TMAX for dates greater than start
+        results = session.query(*sel).filter(measurement.date >= start).all()
+    else:
+        # calculate TMIN, TAVG, TMAX with start and stop
+        results = session.query(*sel).filter(measurement.date >= start).filter(measurement.date <= end).all()
+    
+    # Close the session
+    session.close()
+
+    # Unravel results into a 1D array and convert to a list
+    temps = list(np.ravel(results))
+
+    # Return the results as a JSON
+    return jsonify(temps=temps)
+    # calculate TMIN, TAVG, TMAX with start and stop
+    start = dt.datetime.strptime(start, "%m%d%Y")
+    end = dt.datetime.strptime(end, "%m%d%Y")
+    results = session.query(*sel).\
+        filter(measurement.date >= start).\
+        filter(measurement.date <= end).all()
+    session.close()
+    # Unravel results into a 1D array and convert to a list
+    temps = list(np.ravel(results))
+    return jsonify(temps=temps)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
